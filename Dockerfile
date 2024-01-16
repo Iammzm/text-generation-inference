@@ -235,10 +235,10 @@ FROM base as sagemaker
 COPY sagemaker-entrypoint.sh entrypoint.sh
 RUN chmod +x entrypoint.sh
 
-ENTRYPOINT ["./entrypoint.sh"]
+# ENTRYPOINT ["./entrypoint.sh"]
 
-# Final image
-FROM base
+# # Final image
+# FROM base
 
-ENTRYPOINT ["text-generation-launcher"]
-CMD ["--json-output"]
+# ENTRYPOINT ["text-generation-launcher"]
+# CMD ["--json-output"]

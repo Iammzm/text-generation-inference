@@ -76,5 +76,5 @@ RUN git clone https://github.com/huggingface/text-generation-inference
 
 
 RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
-RUN cd text-generation-inference/server && make install-vllm install-flash-attention
+RUN cd text-generation-inference/server && make install-vllm-cuda install-flash-attention-v2-cuda
 RUN cd text-generation-inference && make install-benchmark

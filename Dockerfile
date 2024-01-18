@@ -9,9 +9,14 @@ ARG MINICONDA_VERSION=Miniconda3-py311_23.11.0-2-Linux-x86_64
 ARG PROTOC_VERSION=protoc-21.12-linux-x86_64
 # TGI version
 ARG TGI_VERSION=v1.0.1
-# Open VScode server version
-# ARG OPENVSCODE_VERSION=openvscode-server-v1.80.1
 
+ARG PYTORCH_VERSION=2.1.1
+ARG PYTHON_VERSION=3.10
+# Keep in sync with `server/pyproject.toml
+ARG CUDA_VERSION=12.1
+ARG MAMBA_VERSION=23.3.1-1
+ARG CUDA_CHANNEL=nvidia
+ARG INSTALL_CHANNEL=pytorch
 
 #*****************************************************************************
 # Environment variables
@@ -55,8 +60,7 @@ RUN curl -sS https://repo.anaconda.com/miniconda/${MINICONDA_VERSION}.sh -O \
   && bash ${MINICONDA_VERSION}.sh -b \
   && rm -f ${MINICONDA_VERSION}.sh
 
-# Create environment with Python 3.9 (required by TGI)
-RUN conda create -n ai-copilot python=3.9
+RUN conda create -n ai-copilot python=${PYTHON_VERSION}
 
 
 # Install pytorch
@@ -65,11 +69,12 @@ RUN conda create -n ai-copilot python=3.9
 # Make all below RUN command use the correct conda environment
 SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
 
-RUN conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -n ai-copilot
+RUN conda install pytorch torchvision torchaudio pytorch-cuda=${CUDA_VERSION} -c pytorch -c nvidia -n ai-copilot
 
 # Install text-generation-inference and text-generation-benchmark
 RUN git clone https://github.com/huggingface/text-generation-inference
 
 
 RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
+RUN cd text-generation-inference/server && make install-vllm install-flash-attention
 RUN cd text-generation-inference && make install-benchmark

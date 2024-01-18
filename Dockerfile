@@ -10,7 +10,7 @@ ARG PROTOC_VERSION=protoc-21.12-linux-x86_64
 # TGI version
 ARG TGI_VERSION=v1.0.1
 # Open VScode server version
-ARG OPENVSCODE_VERSION=openvscode-server-v1.80.1
+# ARG OPENVSCODE_VERSION=openvscode-server-v1.80.1
 
 
 #*****************************************************************************
@@ -35,11 +35,11 @@ RUN apt-get update \
   g++ build-essential
 
 # Install visual studio code server (openvscode fork)
-RUN wget -q https://github.com/gitpod-io/openvscode-server/releases/download/${OPENVSCODE_VERSION}/${OPENVSCODE_VERSION}-linux-x64.tar.gz \
-  && tar -xzf ${OPENVSCODE_VERSION}-linux-x64.tar.gz \
-  && mv ${OPENVSCODE_VERSION}-linux-x64 /usr/local/openvscode-server \
-  && ln -s /usr/local/openvscode-server/bin/openvscode-server /usr/local/bin/code-server \
-  && rm ${OPENVSCODE_VERSION}-linux-x64.tar.gz
+# RUN wget -q https://github.com/gitpod-io/openvscode-server/releases/download/${OPENVSCODE_VERSION}/${OPENVSCODE_VERSION}-linux-x64.tar.gz \
+#   && tar -xzf ${OPENVSCODE_VERSION}-linux-x64.tar.gz \
+#   && mv ${OPENVSCODE_VERSION}-linux-x64 /usr/local/openvscode-server \
+#   && ln -s /usr/local/openvscode-server/bin/openvscode-server /usr/local/bin/code-server \
+#   && rm ${OPENVSCODE_VERSION}-linux-x64.tar.gz
 
 # Install protoc
 RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.12/${PROTOC_VERSION}.zip \
@@ -74,13 +74,13 @@ RUN git clone https://github.com/huggingface/text-generation-inference
 
 RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a941fdf3a641cdc65a0462996e
 
-# Install dev requirements
-COPY requirements-dev.txt /requirements-dev.txt
-RUN pip install -r /requirements-dev.txt --no-cache-dir && rm -f /requirements-dev.txt
+# # Install dev requirements
+# COPY requirements-dev.txt /requirements-dev.txt
+# RUN pip install -r /requirements-dev.txt --no-cache-dir && rm -f /requirements-dev.txt
 
-# Install project requirements
-COPY requirements.txt /requirements.txt
-RUN pip install -r /requirements.txt --no-cache-dir && rm -f /requirements.txt
+# # Install project requirements
+# COPY requirements.txt /requirements.txt
+# RUN pip install -r /requirements.txt --no-cache-dir && rm -f /requirements.txt
 
 
 RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install

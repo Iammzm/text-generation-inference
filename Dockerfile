@@ -58,7 +58,6 @@ RUN curl -sS https://repo.anaconda.com/miniconda/${MINICONDA_VERSION}.sh -O \
 # Create environment with Python 3.9 (required by TGI)
 RUN conda create -n ai-copilot python=3.9
 
-RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a941fdf3a641cdc65a0462996e
 
 # Install pytorch
 RUN conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -n ai-copilot
@@ -72,11 +71,8 @@ RUN git clone https://github.com/huggingface/text-generation-inference
 # RUN git config --global user.email "none@example.com" && git config --global user.name "None"
 # RUN cd text-generation-inference && git cherry-pick 05dd14fdb93f83ad5fde6d5b9cb6c21edef71aa1
 ## </HOTFIX>
-RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
-RUN cd text-generation-inference/server && make install-vllm install-flash-attention
-# Don't touch the line below, for the love of God, I know it[]'s stupid ¯\_(ツ)_/¯
-RUN pip uninstall -y ninja && pip install ninja && pip install flash-attn --no-build-isolation
-RUN cd text-generation-inference && make install-benchmark
+
+RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a941fdf3a641cdc65a0462996e
 
 # Install dev requirements
 COPY requirements-dev.txt /requirements-dev.txt
@@ -85,6 +81,14 @@ RUN pip install -r /requirements-dev.txt --no-cache-dir && rm -f /requirements-d
 # Install project requirements
 COPY requirements.txt /requirements.txt
 RUN pip install -r /requirements.txt --no-cache-dir && rm -f /requirements.txt
+
+
+RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
+RUN cd text-generation-inference/server && make install-vllm install-flash-attention
+# Don't touch the line below, for the love of God, I know it[]'s stupid ¯\_(ツ)_/¯
+RUN pip uninstall -y ninja && pip install ninja && pip install flash-attn --no-build-isolation
+RUN cd text-generation-inference && make install-benchmark
+
 
 
 # Install prometheus

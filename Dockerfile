@@ -4,7 +4,7 @@ FROM nvidia/cuda:12.1.0-devel-ubuntu20.04
 # Arguments
 #*****************************************************************************
 # Miniconda version
-ARG MINICONDA_VERSION=Miniconda3-py311_23.11.0-2-Linux-x86_64
+# ARG MINICONDA_VERSION=Miniconda3-py311_23.11.0-2-Linux-x86_64
 # Protoc version (required by TGI)
 ARG PROTOC_VERSION=protoc-21.12-linux-x86_64
 # TGI version
@@ -50,17 +50,17 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.1
 # Install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-# Install miniconda
-RUN curl -sS https://repo.anaconda.com/miniconda/${MINICONDA_VERSION}.sh -O \
-  && bash ${MINICONDA_VERSION}.sh -b \
-  && rm -f ${MINICONDA_VERSION}.sh
+# # Install miniconda
+# RUN curl -sS https://repo.anaconda.com/miniconda/${MINICONDA_VERSION}.sh -O \
+#   && bash ${MINICONDA_VERSION}.sh -b \
+#   && rm -f ${MINICONDA_VERSION}.sh
 
 # Create environment with Python 3.9 (required by TGI)
 RUN conda create -n ai-copilot python=3.9
 
 
 # Install pytorch
-RUN conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -n ai-copilot
+# RUN conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -n ai-copilot
 
 # Make all below RUN command use the correct conda environment
 SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]

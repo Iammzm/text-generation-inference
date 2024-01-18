@@ -65,6 +65,8 @@ RUN conda create -n ai-copilot python=3.9
 # Make all below RUN command use the correct conda environment
 SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
 
+RUN conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -n ai-copilot
+
 # Install text-generation-inference and text-generation-benchmark
 RUN git clone https://github.com/huggingface/text-generation-inference
 

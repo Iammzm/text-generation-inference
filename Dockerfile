@@ -4,7 +4,7 @@ FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 # Arguments
 #*****************************************************************************
 # Miniconda version
-ARG MINICONDA_VERSION=Miniconda3-py311_23.5.2-0-Linux-x86_64
+ARG MINICONDA_VERSION=Miniconda3-py311_23.11.0-0-Linux-x86_64
 # Protoc version (required by TGI)
 ARG PROTOC_VERSION=protoc-21.12-linux-x86_64
 # TGI version

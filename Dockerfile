@@ -1,5 +1,4 @@
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
-
+FROM nvidia/cuda:12.1.0-devel-ubuntu20.04
 #*****************************************************************************
 # Arguments
 #*****************************************************************************
@@ -7,8 +6,6 @@ FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 ARG MINICONDA_VERSION=Miniconda3-py311_23.11.0-2-Linux-x86_64
 # Protoc version (required by TGI)
 ARG PROTOC_VERSION=protoc-21.12-linux-x86_64
-# TGI version
-ARG TGI_VERSION=v1.0.1
 
 ARG PYTORCH_VERSION=2.1.1
 ARG PYTHON_VERSION=3.10
@@ -64,12 +61,11 @@ RUN conda create -n ai-copilot python=${PYTHON_VERSION}
 
 
 # Install pytorch
-# RUN conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -n ai-copilot
+RUN conda install pytorch torchvision torchaudio pytorch-cuda=${CUDA_VERSION} -c pytorch -c nvidia -n ai-copilot
 
 # Make all below RUN command use the correct conda environment
 SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
 
-RUN conda install pytorch torchvision torchaudio pytorch-cuda=${CUDA_VERSION} -c pytorch -c nvidia -n ai-copilot
 
 # Install text-generation-inference and text-generation-benchmark
 RUN git clone https://github.com/huggingface/text-generation-inference

@@ -1,244 +1,99 @@
-# Rust builder
-FROM lukemathwalker/cargo-chef:latest-rust-1.71 AS chef
-WORKDIR /usr/src
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
-ARG CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+#*****************************************************************************
+# Arguments
+#*****************************************************************************
+# Miniconda version
+ARG MINICONDA_VERSION=Miniconda3-py311_23.5.2-0-Linux-x86_64
+# Protoc version (required by TGI)
+ARG PROTOC_VERSION=protoc-21.12-linux-x86_64
+# TGI version
+ARG TGI_VERSION=v1.0.1
+# Open VScode server version
+ARG OPENVSCODE_VERSION=openvscode-server-v1.80.1
 
-FROM chef as planner
-COPY Cargo.toml Cargo.toml
-COPY rust-toolchain.toml rust-toolchain.toml
-COPY proto proto
-COPY benchmark benchmark
-COPY router router
-COPY launcher launcher
-RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef AS builder
+#*****************************************************************************
+# Environment variables
+#*****************************************************************************
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/root/miniconda3/bin:${PATH}"
+ENV PATH="/root/.cargo/bin:${PATH}"
+ENV MAX_JOBS=16
+ENV CARGO_BUILD_JOBS=16
+ENV RUSTUP_HOME=/root/.rustup
+ENV CARGO_HOME=/root/.cargo
+ENV PYTHONUNBUFFERED=1
+ENV HF_HOME=/data_zfs/hf_cache
+ENV SENTENCE_TRANSFORMERS_HOME=/data_zfs/hf_cache/sentence_transformers
 
-ARG GIT_SHA
-ARG DOCKER_LABEL
 
-RUN PROTOC_ZIP=protoc-21.12-linux-x86_64.zip && \
-    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.12/$PROTOC_ZIP && \
-    unzip -o $PROTOC_ZIP -d /usr/local bin/protoc && \
-    unzip -o $PROTOC_ZIP -d /usr/local 'include/*' && \
-    rm -f $PROTOC_ZIP
+# Update and install some packages
+RUN apt-get update \
+  && apt-get install -y zsh tmux wget curl git vim htop \
+  libssl-dev gcc unzip pkg-config ninja-build make \
+  g++ build-essential
 
-COPY --from=planner /usr/src/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+# Install visual studio code server (openvscode fork)
+RUN wget -q https://github.com/gitpod-io/openvscode-server/releases/download/${OPENVSCODE_VERSION}/${OPENVSCODE_VERSION}-linux-x64.tar.gz \
+  && tar -xzf ${OPENVSCODE_VERSION}-linux-x64.tar.gz \
+  && mv ${OPENVSCODE_VERSION}-linux-x64 /usr/local/openvscode-server \
+  && ln -s /usr/local/openvscode-server/bin/openvscode-server /usr/local/bin/code-server \
+  && rm ${OPENVSCODE_VERSION}-linux-x64.tar.gz
 
-COPY Cargo.toml Cargo.toml
-COPY rust-toolchain.toml rust-toolchain.toml
-COPY proto proto
-COPY benchmark benchmark
-COPY router router
-COPY launcher launcher
-RUN cargo build --release
+# Install protoc
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.12/${PROTOC_VERSION}.zip \
+  && unzip -o ${PROTOC_VERSION}.zip -d /usr/local bin/protoc \
+  && unzip -o ${PROTOC_VERSION}.zip -d /usr/local 'include/*' \
+  && rm -f ${PROTOC_VERSION}.zip
 
-# Python builder
-# Adapted from: https://github.com/pytorch/pytorch/blob/master/Dockerfile
-FROM nvidia/cuda:12.1.0-devel-ubuntu20.04 as pytorch-install
+# Install rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-ARG PYTORCH_VERSION=2.1.1
-ARG PYTHON_VERSION=3.10
-# Keep in sync with `server/pyproject.toml
-ARG CUDA_VERSION=12.1
-ARG MAMBA_VERSION=23.3.1-1
-ARG CUDA_CHANNEL=nvidia
-ARG INSTALL_CHANNEL=pytorch
-# Automatically set by buildx
-ARG TARGETPLATFORM
+# Install miniconda
+RUN curl -sS https://repo.anaconda.com/miniconda/${MINICONDA_VERSION}.sh -O \
+  && bash ${MINICONDA_VERSION}.sh -b \
+  && rm -f ${MINICONDA_VERSION}.sh
 
-ENV PATH /opt/conda/bin:$PATH
-
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        build-essential \
-        ca-certificates \
-        ccache \
-        curl \
-        git && \
-        rm -rf /var/lib/apt/lists/*
-
-# Install conda
-# translating Docker's TARGETPLATFORM into mamba arches
-RUN case ${TARGETPLATFORM} in \
-         "linux/arm64")  MAMBA_ARCH=aarch64  ;; \
-         *)              MAMBA_ARCH=x86_64   ;; \
-    esac && \
-    curl -fsSL -v -o ~/mambaforge.sh -O  "https://github.com/conda-forge/miniforge/releases/download/${MAMBA_VERSION}/Mambaforge-${MAMBA_VERSION}-Linux-${MAMBA_ARCH}.sh"
-RUN chmod +x ~/mambaforge.sh && \
-    bash ~/mambaforge.sh -b -p /opt/conda && \
-    rm ~/mambaforge.sh
-
-# Install pytorch
-# On arm64 we exit with an error code
-RUN case ${TARGETPLATFORM} in \
-         "linux/arm64")  exit 1 ;; \
-         *)              /opt/conda/bin/conda update -y conda &&  \
-                         /opt/conda/bin/conda install -c "${INSTALL_CHANNEL}" -c "${CUDA_CHANNEL}" -y "python=${PYTHON_VERSION}" "pytorch=$PYTORCH_VERSION" "pytorch-cuda=$(echo $CUDA_VERSION | cut -d'.' -f 1-2)"  ;; \
-    esac && \
-    /opt/conda/bin/conda clean -ya
-
-# CUDA kernels builder image
-FROM pytorch-install as kernel-builder
-
-ARG MAX_JOBS=8
-
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        ninja-build \
-        && rm -rf /var/lib/apt/lists/*
-
-# Build Flash Attention CUDA kernels
-FROM kernel-builder as flash-att-builder
-
-WORKDIR /usr/src
-
-COPY server/Makefile-flash-att Makefile
-
-# Build specific version of flash attention
-RUN make build-flash-attention
-
-# Build Flash Attention v2 CUDA kernels
-FROM kernel-builder as flash-att-v2-builder
-
-WORKDIR /usr/src
-
-COPY server/Makefile-flash-att-v2 Makefile
-
-# Build specific version of flash attention v2
-RUN make build-flash-attention-v2-cuda
-
-# Build Transformers exllama kernels
-FROM kernel-builder as exllama-kernels-builder
-WORKDIR /usr/src
-COPY server/exllama_kernels/ .
-
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" python setup.py build
-
-# Build Transformers exllama kernels
-FROM kernel-builder as exllamav2-kernels-builder
-WORKDIR /usr/src
-COPY server/exllamav2_kernels/ .
-
-# Build specific version of transformers
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" python setup.py build
-
-# Build Transformers awq kernels
-FROM kernel-builder as awq-kernels-builder
-WORKDIR /usr/src
-COPY server/Makefile-awq Makefile
-# Build specific version of transformers
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" make build-awq
-
-# Build eetq kernels
-FROM kernel-builder as eetq-kernels-builder
-WORKDIR /usr/src
-COPY server/Makefile-eetq Makefile
-# Build specific version of transformers
-RUN TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX" make build-eetq
-
-# Build Transformers CUDA kernels
-FROM kernel-builder as custom-kernels-builder
-WORKDIR /usr/src
-COPY server/custom_kernels/ .
-# Build specific version of transformers
-RUN python setup.py build
-
-# Build vllm CUDA kernels
-FROM kernel-builder as vllm-builder
-
-WORKDIR /usr/src
-
-COPY server/Makefile-vllm Makefile
-
-# Build specific version of vllm
-RUN make build-vllm-cuda
-
-# Build megablocks
-FROM kernel-builder as megablocks-builder
+# Create environment with Python 3.9 (required by TGI)
+RUN conda create -n ai-copilot python=3.9
 
 RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a941fdf3a641cdc65a0462996e
 
-# Text Generation Inference base image
-FROM nvidia/cuda:12.1.0-base-ubuntu20.04 as base
+# Install pytorch
+RUN conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -n ai-copilot
 
-# Conda env
-ENV PATH=/opt/conda/bin:$PATH \
-    CONDA_PREFIX=/opt/conda
+# Make all below RUN command use the correct conda environment
+SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
 
-# Text Generation Inference base env
-ENV HUGGINGFACE_HUB_CACHE=/data \
-    HF_HUB_ENABLE_HF_TRANSFER=1 \
-    PORT=80
+# Install text-generation-inference and text-generation-benchmark
+RUN git clone https://github.com/huggingface/text-generation-inference
+## <HOTFIX> Required to fix https://github.com/huggingface/text-generation-inference/pull/838
+# RUN git config --global user.email "none@example.com" && git config --global user.name "None"
+# RUN cd text-generation-inference && git cherry-pick 05dd14fdb93f83ad5fde6d5b9cb6c21edef71aa1
+## </HOTFIX>
+RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
+RUN cd text-generation-inference/server && make install-vllm install-flash-attention
+# Don't touch the line below, for the love of God, I know it[]'s stupid ¯\_(ツ)_/¯
+RUN pip uninstall -y ninja && pip install ninja && pip install flash-attn --no-build-isolation
+RUN cd text-generation-inference && make install-benchmark
 
-WORKDIR /usr/src
+# Install dev requirements
+COPY requirements-dev.txt /requirements-dev.txt
+RUN pip install -r /requirements-dev.txt --no-cache-dir && rm -f /requirements-dev.txt
 
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        libssl-dev \
-        ca-certificates \
-        make \
-        curl \
-        && rm -rf /var/lib/apt/lists/*
+# Install project requirements
+COPY requirements.txt /requirements.txt
+RUN pip install -r /requirements.txt --no-cache-dir && rm -f /requirements.txt
 
-# Copy conda with PyTorch and Megablocks installed
-COPY --from=megablocks-builder /opt/conda /opt/conda
 
-# Copy build artifacts from flash attention builder
-COPY --from=flash-att-builder /usr/src/flash-attention/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-COPY --from=flash-att-builder /usr/src/flash-attention/csrc/layer_norm/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-COPY --from=flash-att-builder /usr/src/flash-attention/csrc/rotary/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
+# Install prometheus
+# RUN wget https://github.com/prometheus/prometheus/releases/download/v2.46.0/prometheus-2.46.0.linux-amd64.tar.gz \
+#   && tar -xzf prometheus-2.46.0.linux-amd64.tar.gz && rm prometheus-2.46.0.linux-amd64.tar.gz
+# ENV PATH="/prometheus-2.46.0.linux-amd64:${PATH}"
 
-# Copy build artifacts from flash attention v2 builder
-COPY --from=flash-att-v2-builder /usr/src/flash-attention-v2/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
+# Install grafana
+# RUN wget https://dl.grafana.com/enterprise/release/grafana-enterprise-10.1.0.linux-amd64.tar.gz \
+#   && tar -xzf grafana-enterprise-10.1.0.linux-amd64.tar.gz && rm grafana-enterprise-10.1.0.linux-amd64.tar.gz
 
-# Copy build artifacts from custom kernels builder
-COPY --from=custom-kernels-builder /usr/src/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-# Copy build artifacts from exllama kernels builder
-COPY --from=exllama-kernels-builder /usr/src/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-# Copy build artifacts from exllamav2 kernels builder
-COPY --from=exllamav2-kernels-builder /usr/src/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-# Copy build artifacts from awq kernels builder
-COPY --from=awq-kernels-builder /usr/src/llm-awq/awq/kernels/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-# Copy build artifacts from eetq kernels builder
-COPY --from=eetq-kernels-builder /usr/src/eetq/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-
-# Copy builds artifacts from vllm builder
-COPY --from=vllm-builder /usr/src/vllm/build/lib.linux-x86_64-cpython-310 /opt/conda/lib/python3.10/site-packages
-
-# Install flash-attention dependencies
-RUN pip install einops --no-cache-dir
-
-# Install server
-COPY proto proto
-COPY server server
-COPY server/Makefile server/Makefile
-RUN cd server && \
-    make gen-server && \
-    pip install -r requirements_cuda.txt && \
-    pip install ".[bnb, accelerate, quantize, peft]" --no-cache-dir
-
-# Install benchmarker
-COPY --from=builder /usr/src/target/release/text-generation-benchmark /usr/local/bin/text-generation-benchmark
-# Install router
-COPY --from=builder /usr/src/target/release/text-generation-router /usr/local/bin/text-generation-router
-# Install launcher
-COPY --from=builder /usr/src/target/release/text-generation-launcher /usr/local/bin/text-generation-launcher
-
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        build-essential \
-        g++ \
-        && rm -rf /var/lib/apt/lists/*
-
-# AWS Sagemaker compatible image
-FROM base as sagemaker
-
-COPY sagemaker-entrypoint.sh entrypoint.sh
-RUN chmod +x entrypoint.sh
-
-# ENTRYPOINT ["./entrypoint.sh"]
-
-# # Final image
-# FROM base
-
-# ENTRYPOINT ["text-generation-launcher"]
-# CMD ["--json-output"]
+# ENV PATH="/grafana-10.1.0/bin:${PATH}"

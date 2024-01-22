@@ -74,7 +74,7 @@ RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a
 RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
 RUN cd text-generation-inference/server && make install-vllm-cuda install-flash-attention
 # Don't touch the line below, for the love of God, I know it's stupid ¯\_(ツ)_/¯
-RUN pip uninstall -y ninja && pip install ninja && pip install flash-attn==2.0.1 --no-build-isolation
+# RUN pip uninstall -y ninja && pip install ninja && pip install flash-attn==2.0.1 --no-build-isolation
 RUN cd text-generation-inference && make install-benchmark
 
 # RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install

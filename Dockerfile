@@ -59,12 +59,12 @@ RUN curl -sS https://repo.anaconda.com/miniconda/${MINICONDA_VERSION}.sh -O \
 
 RUN conda create -n ai-copilot python=${PYTHON_VERSION}
 
+SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
 
 # Install pytorch
 RUN conda install pytorch torchvision torchaudio pytorch-cuda=${CUDA_VERSION} -c pytorch -c nvidia -n ai-copilot
 
 # Make all below RUN command use the correct conda environment
-SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
 
 
 # Install text-generation-inference and text-generation-benchmark

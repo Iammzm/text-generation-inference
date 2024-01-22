@@ -28,7 +28,7 @@ ENV CARGO_HOME=/root/.cargo
 ENV PYTHONUNBUFFERED=1
 ENV HF_HOME=/data_zfs/hf_cache
 ENV SENTENCE_TRANSFORMERS_HOME=/data_zfs/hf_cache/sentence_transformers
-
+ENV NVIDIA_DISABLE_REQUIRE=1
 
 # Update and install some packages
 RUN apt-get update \

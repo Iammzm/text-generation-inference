@@ -57,22 +57,22 @@ RUN curl -sS https://repo.anaconda.com/miniconda/${MINICONDA_VERSION}.sh -O \
   && bash ${MINICONDA_VERSION}.sh -b \
   && rm -f ${MINICONDA_VERSION}.sh
 
-# RUN conda create -n ai-copilot python=${PYTHON_VERSION}
+RUN conda create -n ai-copilot python=${PYTHON_VERSION}
 
 
-# # Install pytorch
-# RUN conda install pytorch torchvision torchaudio pytorch-cuda=${CUDA_VERSION} -c pytorch -c nvidia -n ai-copilot
+# Install pytorch
+RUN conda install pytorch torchvision torchaudio pytorch-cuda=${CUDA_VERSION} -c pytorch -c nvidia -n ai-copilot
 
-# # Make all below RUN command use the correct conda environment
-# SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
-
-
-# # Install text-generation-inference and text-generation-benchmark
-# RUN git clone https://github.com/huggingface/text-generation-inference
-# RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a941fdf3a641cdc65a0462996e
+# Make all below RUN command use the correct conda environment
+SHELL ["conda", "run", "--no-capture-output", "-n", "ai-copilot", "/bin/bash", "-c"]
 
 
-# RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
+# Install text-generation-inference and text-generation-benchmark
+RUN git clone https://github.com/huggingface/text-generation-inference
+RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a941fdf3a641cdc65a0462996e
+
+
+RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
 # try running when in session (using gpu)
-# RUN cd text-generation-inference/server && make install-vllm-cuda install-flash-attention-v2-cuda
-# RUN cd text-generation-inference && make install-benchmark
+RUN cd text-generation-inference/server && make install-vllm-cuda install-flash-attention-v2-cuda
+RUN cd text-generation-inference && make install-benchmark

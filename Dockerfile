@@ -78,5 +78,5 @@ RUN pip install git+https://github.com/OlivierDehaene/megablocks@181709df192de9a
 
 RUN cd text-generation-inference && BUILD_EXTENSIONS=True make install
 RUN cd text-generation-inference/server && make install-vllm-cuda
-RUN cd text-generation-inference/server && make install-flash-attention-v2-cuda
+# RUN cd text-generation-inference/server && make install-flash-attention-v2-cuda
 RUN cd text-generation-inference && make install-benchmark

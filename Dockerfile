@@ -13,7 +13,7 @@ ENV RUSTUP_HOME=/root/.rustup
 ENV CARGO_HOME=/root/.cargo
 ENV PYTHONUNBUFFERED=1
 ENV HF_HOME=/data_zfs/hf_cache
-ENV HUGGINGFACE_HUB_CACHE=data_zfs/hf_cache
+ENV HUGGINGFACE_HUB_CACHE=data_zfs/hf_cache/hub
 ENV SENTENCE_TRANSFORMERS_HOME=/data_zfs/hf_cache/sentence_transformers
 ENV NVIDIA_DISABLE_REQUIRE=1
 

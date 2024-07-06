@@ -1,4 +1,4 @@
-FROM ghcr.io/huggingface/text-generation-inference:2.0
+FROM ghcr.io/huggingface/text-generation-inference:latest
 
 
 #*****************************************************************************

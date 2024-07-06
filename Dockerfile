@@ -19,6 +19,6 @@ ENV NVIDIA_DISABLE_REQUIRE=1
 
 # Update and install some packages
 RUN apt-get update \
-  && apt-get install -y zsh tmux wget curl git vim htop \
+  && apt-get install -y zsh tmux wget curl git less vim htop \
   libssl-dev gcc unzip pkg-config ninja-build make \
   g++ build-essential
